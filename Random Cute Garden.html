@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Random Cute Garden</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#fff1f6; --bg2:#e4f6ff; --card:#ffffff; --text:#5a3a55; --muted:#9a7a95; --accent:#ff8fb8;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#2a1f33; --bg2:#1b2a38; --card:#3a2d46; --text:#ffeaf4; --muted:#c9a9c4; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#2a1f33; --bg2:#1b2a38; --card:#3a2d46; --text:#ffeaf4; --muted:#c9a9c4; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; min-height:100vh; overflow-x:hidden;
+  font-family:"Fredoka","Comic Sans MS","Trebuchet MS",system-ui,sans-serif;
+  color:var(--text);
+  background:linear-gradient(160deg,var(--bg),var(--bg2)) fixed;
+  background-color:var(--bg);
+  display:flex; flex-direction:column; align-items:center; padding:28px 16px 40px;
+}
+h1{margin:6px 0 4px; font-size:clamp(28px,7vw,44px); text-align:center}
+.sub{margin:0 0 22px; color:var(--muted); text-align:center}
+.card{
+  width:100%; max-width:420px; background:var(--card); border-radius:32px; padding:28px 22px;
+  text-align:center; box-shadow:0 10px 30px color-mix(in srgb,var(--accent) 35%,transparent);
+  border:4px solid var(--accent); transition:border-color .4s;
+}
+.emoji{font-size:96px; line-height:1.1; display:inline-block}
+.pop{animation:pop .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{0%{transform:scale(.3) rotate(-15deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+.name{font-size:28px; font-weight:600; margin:8px 0 6px}
+.msg{font-size:18px; color:var(--muted); min-height:54px; margin:0}
+button{
+  font-family:inherit; font-size:22px; font-weight:600; color:#fff; background:var(--accent);
+  border:0; border-radius:999px; padding:14px 34px; margin-top:22px; cursor:pointer;
+  box-shadow:0 6px 0 color-mix(in srgb,var(--accent) 60%,#000); transition:transform .1s, box-shadow .1s;
+}
+button:active{transform:translateY(5px); box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 60%,#000)}
+.stats{margin-top:20px; color:var(--muted)}
+.history{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; font-size:30px; min-height:40px}
+.petal{position:fixed; top:-40px; font-size:26px; pointer-events:none; animation:fall linear forwards; z-index:5}
+@keyframes fall{to{transform:translateY(110vh) rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.petal{display:none}.pop{animation:none}}
+</style>
+</head>
+<body>
+<h1>🌸 Random Cute Garden 🌸</h1>
+<p class="sub">Press the button to find something cute!</p>
+
+<div class="card" id="card">
+  <div class="emoji" id="emoji">🌷</div>
+  <div class="name" id="name">Hello, friend!</div>
+  <p class="msg" id="msg">Something adorable is waiting for you.</p>
+  <button id="btn">Surprise me! ✨</button>
+</div>
+
+<div class="stats">Surprises found: <b id="count">0</b></div>
+<div class="history" id="history"></div>
+
+<script>
+const ITEMS = [
+  ["🐰","Bunny Hop","You are doing great. Hop to it!"],
+  ["🌻","Sunny Flower","Smile today, the sun is smiling at you."],
+  ["🐝","Busy Bee","Small steps make the sweetest honey."],
+  ["🦋","Butterfly","Good things take time to bloom."],
+  ["🐞","Lady Bug","You are lucky just by being you."],
+  ["🍓","Strawberry","You are berry, berry special."],
+  ["🐥","Baby Chick","Peep peep! Time for a tiny break."],
+  ["🌈","Rainbow","After every rain comes color."],
+  ["🍄","Little Mushroom","Grow at your own speed."],
+  ["🐌","Snail Friend","Slow and steady still wins the garden race."],
+  ["🧸","Teddy Bear","Sending you a very big hug."],
+  ["🌼","Daisy","You make the whole garden brighter."],
+  ["🐱","Sleepy Kitten","Naps are a perfectly good plan."],
+  ["🍯","Honey Pot","Be kind to yourself today."],
+  ["⭐","Little Star","You shine more than you know."],
+  ["🐸","Happy Frog","Ribbit! Jump into something fun."]
+];
+const COLORS = ["#ff8fb8","#ffa86b","#f2c94c","#7fd68f","#6ec6ff","#b793ff","#ff8a8a"];
+const $ = id => document.getElementById(id);
+let last = -1, count = 0, hist = [];
+
+function petals(){
+  const bits = ["🌸","🌷","💗","✨","🌼"];
+  for(let i=0;i<16;i++){
+    const p = document.createElement("span");
+    p.className = "petal";
+    p.textContent = bits[Math.floor(Math.random()*bits.length)];
+    p.style.left = Math.random()*100 + "vw";
+    p.style.animationDuration = (2.5 + Math.random()*2.5) + "s";
+    p.style.animationDelay = (Math.random()*0.6) + "s";
+    document.body.appendChild(p);
+    p.addEventListener("animationend", () => p.remove());
+  }
+}
+
+function surprise(){
+  let i;
+  do { i = Math.floor(Math.random()*ITEMS.length); } while(i === last);
+  last = i;
+  const [e,n,m] = ITEMS[i];
+  const el = $("emoji");
+  el.textContent = e;
+  el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
+  $("name").textContent = n;
+  $("msg").textContent = m;
+  document.documentElement.style.setProperty("--accent", COLORS[Math.floor(Math.random()*COLORS.length)]);
+  count++;
+  $("count").textContent = count;
+  hist = [e, ...hist].slice(0,8);
+  $("history").textContent = hist.join(" ");
+  petals();
+}
+$("btn").addEventListener("click", surprise);
+</script>
+</body>
+</html>

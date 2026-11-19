@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Math Buddy</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#eef7ff; --bg2:#fff3f8; --card:#ffffff; --text:#33405a; --muted:#7a88a6;
+  --accent:#5b9dff; --good:#2fb36d; --bad:#e5576b; --chip:#e3edff;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16202e; --bg2:#2a1f33; --card:#233044; --text:#eaf1ff; --muted:#9db0d0; --chip:#2f4160; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16202e; --bg2:#2a1f33; --card:#233044; --text:#eaf1ff; --muted:#9db0d0; --chip:#2f4160; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; min-height:100vh; overflow-x:hidden; padding:24px 16px 40px;
+  font-family:"Fredoka","Trebuchet MS",system-ui,sans-serif; color:var(--text);
+  background:linear-gradient(160deg,var(--bg),var(--bg2)) fixed; background-color:var(--bg);
+  display:flex; flex-direction:column; align-items:center;
+}
+h1{margin:4px 0 14px; font-size:clamp(28px,7vw,40px); text-align:center}
+.row{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:10px}
+.chip{
+  font:inherit; font-size:17px; font-weight:600; color:var(--text); background:var(--chip);
+  border:3px solid transparent; border-radius:999px; padding:8px 16px; cursor:pointer;
+}
+.chip.on{background:var(--accent); color:#fff}
+.card{width:100%; max-width:480px; background:var(--card); border-radius:28px; padding:24px 20px; text-align:center;
+  box-shadow:0 10px 28px color-mix(in srgb,var(--accent) 25%,transparent); margin-top:8px}
+.q{font-size:clamp(40px,12vw,64px); font-weight:600; margin:4px 0 8px}
+.vis{font-size:24px; line-height:1.3; min-height:12px; margin-bottom:10px; word-break:break-all}
+.vis .g{display:inline-block; background:var(--chip); border-radius:14px; padding:4px 8px; margin:3px}
+input{
+  font:inherit; font-size:32px; width:160px; text-align:center; color:var(--text); background:var(--bg);
+  border:3px solid var(--chip); border-radius:18px; padding:8px; outline:none;
+}
+input:focus{border-color:var(--accent)}
+.btns{display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap}
+.btn{font:inherit; font-size:19px; font-weight:600; color:#fff; background:var(--accent); border:0; border-radius:999px; padding:11px 26px; cursor:pointer}
+.btn.alt{background:var(--chip); color:var(--text)}
+.btn[hidden]{display:none}
+.fb{margin-top:16px; padding:14px; border-radius:18px; text-align:left; font-size:18px; display:none}
+.fb.show{display:block}
+.fb.ok{background:color-mix(in srgb,var(--good) 18%,transparent)}
+.fb.no{background:color-mix(in srgb,var(--bad) 18%,transparent)}
+.fb.tip{background:color-mix(in srgb,var(--accent) 18%,transparent)}
+.stats{display:flex; gap:18px; justify-content:center; margin-top:18px; font-size:20px; font-weight:600}
+.bar{width:100%; max-width:480px; height:16px; background:var(--chip); border-radius:999px; margin-top:14px; overflow:hidden}
+.bar i{display:block; height:100%; width:0; background:var(--good); transition:width .4s}
+.small{color:var(--muted); font-size:15px; margin-top:6px}
+</style>
+</head>
+<body>
+<h1>🧮 Math Buddy</h1>
+
+<div class="row" id="topics"></div>
+<div class="row" id="levels"></div>
+
+<div class="card">
+  <div class="q" id="q">…</div>
+  <div class="vis" id="vis"></div>
+  <input id="ans" type="number" inputmode="numeric" placeholder="?" autocomplete="off">
+  <div class="btns">
+    <button class="btn" id="check">Check ✓</button>
+    <button class="btn alt" id="hint">Hint 💡</button>
+    <button class="btn" id="next" hidden>Next ➜</button>
+  </div>
+  <div class="fb" id="fb"></div>
+</div>
+
+<div class="stats">
+  <span>⭐ <span id="stars">0</span></span>
+  <span>🔥 <span id="streak">0</span></span>
+  <span>✅ <span id="score">0/0</span></span>
+</div>
+<div class="bar"><i id="prog"></i></div>
+<div class="small">Get 5 answers right to earn a star!</div>
+
+<script>
+const TOPICS = {add:"➕ Add", sub:"➖ Subtract", mul:"✖️ Multiply", div:"➗ Divide"};
+const LEVELS = ["Easy","Medium","Hard"];
+const $ = id => document.getElementById(id);
+const rnd = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+let topic="add", level=0, q=null, answered=false, correct=0, total=0, streak=0;
+
+function chips(id, items, get, set){
+  const box=$(id); box.innerHTML="";
+  items.forEach(([k,label])=>{
+    const b=document.createElement("button");
+    b.className="chip"+(get()===k?" on":""); b.textContent=label;
+    b.onclick=()=>{set(k); chips(id,items,get,set); newQ();};
+    box.appendChild(b);
+  });
+}
+
+function gen(){
+  let a,b,ans,sym;
+  if(topic==="add"||topic==="sub"){
+    const [lo,hi]=[[1,10],[10,99],[100,999]][level];
+    a=rnd(lo,hi); b=rnd(lo,hi);
+    if(topic==="add"){ans=a+b; sym="+";}
+    else{ if(b>a)[a,b]=[b,a]; ans=a-b; sym="−";}
+  } else if(topic==="mul"){
+    [a,b]=[[rnd(2,5),rnd(1,10)],[rnd(2,12),rnd(2,12)],[rnd(11,25),rnd(3,12)]][level];
+    ans=a*b; sym="×";
+  } else {
+    const [d,qq]=[[rnd(2,5),rnd(1,10)],[rnd(2,12),rnd(2,12)],[rnd(6,15),rnd(6,20)]][level];
+    a=d*qq; b=d; ans=qq; sym="÷";
+  }
+  return {a,b,ans,sym};
+}
+
+function pieces(n){ // split into hundreds, tens, ones
+  return [Math.floor(n/100)*100, Math.floor(n%100/10)*10, n%10].filter(x=>x>0);
+}
+
+function visual(){
+  const {a,b}=q;
+  if(level!==0) return "";
+  if(topic==="add") return "🍎".repeat(a)+" ➕ "+"🍏".repeat(b);
+  if(topic==="sub") return "🍎".repeat(a-b)+"❌".repeat(b);
+  if(topic==="mul") return Array.from({length:a},()=>`<span class="g">${"🍎".repeat(b)}</span>`).join("");
+  return "";
+}
+
+function hint(){
+  const {a,b}=q;
+  if(topic==="add") return "Split the second number into pieces (hundreds, tens, ones) and add one piece at a time.";
+  if(topic==="sub") return "Take the second number away in pieces: hundreds first, then tens, then ones.";
+  if(topic==="mul") return a>10||b>10 ? "Break the big number into tens and ones, multiply each part, then add." : `Think of ${Math.min(a,b)} groups of ${Math.max(a,b)}. You can add them up.`;
+  return `Ask yourself: ${b} × ? = ${a}. What number fits in the box?`;
+}
+
+function explain(){
+  const {a,b,ans}=q;
+  if(topic==="add"||topic==="sub"){
+    let cur=a, steps=[]; const sign=topic==="add"?1:-1;
+    pieces(b).forEach(p=>{ steps.push(`${cur} ${sign>0?"+":"−"} ${p} = ${cur+sign*p}`); cur+=sign*p; });
+    return `Split ${b} into pieces and go one piece at a time:<br>${steps.join("<br>")}`;
+  }
+  if(topic==="mul"){
+    const big=Math.max(a,b), small=Math.min(a,b);
+    if(big>10){
+      const t=Math.floor(big/10)*10, o=big%10;
+      return o ? `Split ${big} into ${t} + ${o}:<br>(${t} × ${small}) + (${o} × ${small}) = ${t*small} + ${o*small} = ${ans}` : `${big} × ${small} = ${ans}`;
+    }
+    return `${small} groups of ${big}:<br>${Array(small).fill(big).join(" + ")} = ${ans}`;
+  }
+  return `${b} × ${ans} = ${a}, so ${a} ÷ ${b} = ${ans}.`;
+}
+
+function newQ(){
+  q=gen(); answered=false;
+  $("q").textContent=`${q.a} ${q.sym} ${q.b} = ?`;
+  $("vis").innerHTML=visual();
+  $("ans").value=""; $("ans").disabled=false;
+  const fb=$("fb"); fb.className="fb"; fb.innerHTML="";
+  $("check").hidden=false; $("hint").hidden=false; $("next").hidden=true;
+  $("ans").focus();
+}
+
+function show(cls, html){ const fb=$("fb"); fb.className="fb show "+cls; fb.innerHTML=html; }
+
+function check(){
+  if(answered) return;
+  const v=$("ans").value.trim();
+  if(v===""){ show("tip","Type your answer first. You can do it! 💪"); return; }
+  answered=true; total++;
+  if(Number(v)===q.ans){
+    correct++; streak++;
+    const praise=["Great job!","You got it!","Super smart!","Wow, perfect!","Yay!"][rnd(0,4)];
+    show("ok",`<b>🎉 ${praise}</b><br>${explain()}`);
+  } else {
+    streak=0;
+    show("no",`<b>Not quite, and that’s okay!</b><br>The answer is <b>${q.ans}</b>.<br>${explain()}`);
+  }
+  $("ans").disabled=true; $("check").hidden=true; $("hint").hidden=true; $("next").hidden=false; $("next").focus();
+  stats();
+}
+
+function stats(){
+  $("stars").textContent=Math.floor(correct/5);
+  $("streak").textContent=streak;
+  $("score").textContent=`${correct}/${total}`;
+  $("prog").style.width=((correct%5)/5*100)+"%";
+}
+
+$("check").onclick=check;
+$("next").onclick=newQ;
+$("hint").onclick=()=>show("tip","💡 "+hint());
+$("ans").addEventListener("keydown",e=>{ if(e.key==="Enter") check(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Enter" && answered) newQ(); });
+
+chips("topics",Object.entries(TOPICS),()=>topic,k=>topic=k);
+chips("levels",LEVELS.map((l,i)=>[i,l]),()=>level,k=>level=k);
+newQ(); stats();
+</script>
+</body>
+</html>
